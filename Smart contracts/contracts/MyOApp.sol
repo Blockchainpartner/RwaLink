@@ -340,13 +340,13 @@ contract MyOApp is OApp, OAppOptionsType3, ERC20, AccessControlEnumerable, IERC7
         if (action == MINT_ACTION) {
             (uint256 _actionID, address _userAddress, uint256 _amount) = abi.decode(_message, (uint256, address, uint256));
 
-            mintRWA(_userAddress, _amount);
+            _update(address(0), _userAddress, _amount);
         }
 
         if (action == BURN_ACTION) {
             (uint256 _actionID, address _userAddress, uint256 _amount) = abi.decode(_message, (uint256, address, uint256));
 
-            burnRWA(_userAddress, _amount);
+            _update(_userAddress, address(0), _amount);
         }
 
         // 3. (Optional) Trigger further on-chain actions.
