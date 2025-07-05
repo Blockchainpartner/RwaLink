@@ -12,6 +12,10 @@ const arbitrumContract: OmniPointHardhat = {
     eid: EndpointId.ARBSEP_V2_TESTNET,
     contractName: 'MyOApp',
 }
+const sepoliaContract: OmniPointHardhat = {
+    eid: EndpointId.ETHEREUM_V2_TESTNET,
+    contractName: 'MyOApp',
+}
 
 // For this example's simplicity, we will use the same enforced options values for sending to all chains
 // For production, you should ensure `gas` is set to the correct value through profiling the gas usage of calling OApp._lzReceive(...) on the destination chain
@@ -38,13 +42,27 @@ const pathways: TwoWayConfig[] = [
         [1, 1], // [A to B confirmations, B to A confirmations]
         [EVM_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
+    [
+        optimismContract, // Chain A contract
+        sepoliaContract, // Chain B contract
+        [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+        [1, 1], // [A to B confirmations, B to A confirmations]
+        [EVM_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+        sepoliaContract, // Chain A contract
+        arbitrumContract, // Chain B contract
+        [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+        [1, 1], // [A to B confirmations, B to A confirmations]
+        [EVM_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
 ]
 
 export default async function () {
     // Generate the connections config based on the pathways
     const connections = await generateConnectionsConfig(pathways)
     return {
-        contracts: [{ contract: optimismContract }, { contract: arbitrumContract }],
+        contracts: [{ contract: optimismContract }, { contract: arbitrumContract }, { contract: sepoliaContract }],
         connections,
     }
 }

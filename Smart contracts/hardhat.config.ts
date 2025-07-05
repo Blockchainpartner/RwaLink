@@ -27,8 +27,8 @@ const PRIVATE_KEY = process.env.PRIVATE_KEY
 const accounts: HttpNetworkAccountsUserConfig | undefined = MNEMONIC
     ? { mnemonic: MNEMONIC }
     : PRIVATE_KEY
-      ? [PRIVATE_KEY]
-      : undefined
+        ? [PRIVATE_KEY]
+        : undefined
 
 if (accounts == null) {
     console.warn(
@@ -56,12 +56,17 @@ const config: HardhatUserConfig = {
     networks: {
         'optimism-testnet': {
             eid: EndpointId.OPTSEP_V2_TESTNET,
-            url: process.env.RPC_URL_OP_SEPOLIA || 'https://optimism-sepolia.gateway.tenderly.co',
+            url: process.env.RPC_URL_OP_SEPOLIA,
             accounts,
         },
         'arbitrum-testnet': {
             eid: EndpointId.ARBSEP_V2_TESTNET,
-            url: process.env.RPC_URL_ARB_SEPOLIA || 'https://arbitrum-sepolia.gateway.tenderly.co',
+            url: process.env.RPC_URL_ARB_SEPOLIA,
+            accounts,
+        },
+        'ethereum-testnet': {
+            eid: EndpointId.SEPOLIA_V2_TESTNET,
+            url: process.env.RPC_URL_SEPOLIA,
             accounts,
         },
         hardhat: {
