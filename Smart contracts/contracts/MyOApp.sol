@@ -4,8 +4,11 @@ pragma solidity ^0.8.22;
 import { OApp, Origin, MessagingFee } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import { OAppOptionsType3 } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OAppOptionsType3.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Context } from "@oppenzeppelin/contracts/utils/Context.sol" ;
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { AccessControlEnumerable } from "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 
-contract MyOApp is OApp, OAppOptionsType3 {
+contract MyOApp is OApp, OAppOptionsType3, Context, ERC20, AccessControlEnumerable {
     address[] public whitelisted;
 
     /// @notice Msg type for sending a string, for use in OAppOptionsType3 as an enforced option
