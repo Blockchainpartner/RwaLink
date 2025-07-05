@@ -4,11 +4,12 @@ pragma solidity ^0.8.22;
 import { OApp, Origin, MessagingFee } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import { OAppOptionsType3 } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OAppOptionsType3.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { Context } from "@oppenzeppelin/contracts/utils/Context.sol" ;
+import { Context } from "@oppenzeppelin/contracts/utils/Context.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { AccessControlEnumerable } from "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import { IERC7943 } from "interfaces/IERC7943.sol";
 
-contract MyOApp is OApp, OAppOptionsType3, Context, ERC20, AccessControlEnumerable {
+contract MyOApp is OApp, OAppOptionsType3, Context, ERC20, AccessControlEnumerable, IERC7943 {
     address[] public whitelisted;
 
     /// @notice Msg type for sending a string, for use in OAppOptionsType3 as an enforced option
@@ -33,10 +34,10 @@ contract MyOApp is OApp, OAppOptionsType3, Context, ERC20, AccessControlEnumerab
     // ──────────────────────────────────────────────────────────────────────────────
 
     function quoteBatchSend(
-    uint32[] memory _dstEids,
-    address _whitelistAddress,
-    bytes calldata _options,
-    bool _payInLzToken
+        uint32[] memory _dstEids,
+        address _whitelistAddress,
+        bytes calldata _options,
+        bool _payInLzToken
     ) public view returns (MessagingFee memory totalFee) {
         bytes memory _message = abi.encode(_whitelistAddress);
         uint256 len = _dstEids.length;
@@ -56,9 +57,9 @@ contract MyOApp is OApp, OAppOptionsType3, Context, ERC20, AccessControlEnumerab
     }
 
     function sendBatchWhitelist(
-    uint32[] memory _dstEids,
-    address _whitelistAddress,
-    bytes calldata _options
+        uint32[] memory _dstEids,
+        address _whitelistAddress,
+        bytes calldata _options
     ) external payable {
         bytes memory _message = abi.encode(_whitelistAddress);
         uint256 len = _dstEids.length;
@@ -80,13 +81,7 @@ contract MyOApp is OApp, OAppOptionsType3, Context, ERC20, AccessControlEnumerab
         // 3) Now do all the sends, reusing the fees we already fetched
         for (uint256 i = 0; i < len; i++) {
             bytes memory opts = combineOptions(_dstEids[i], SEND, _options);
-            _lzSend(
-                _dstEids[i],
-                _message,
-                opts,
-                fees[i],
-                payable(msg.sender)
-            );
+            _lzSend(_dstEids[i], _message, opts, fees[i], payable(msg.sender));
         }
 
         whitelist(_whitelistAddress);
