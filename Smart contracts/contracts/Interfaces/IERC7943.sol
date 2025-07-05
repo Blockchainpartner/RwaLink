@@ -1,4 +1,4 @@
-pragma solidity ^0.8.29;
+pragma solidity ^0.8.22;
 
 /// @notice Defines the ERC-7943 interface, the uRWA.
 /// When interacting with specific token standards:
