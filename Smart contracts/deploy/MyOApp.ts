@@ -2,10 +2,10 @@ import assert from 'assert'
 
 import { type DeployFunction } from 'hardhat-deploy/types'
 
-const contractName = 'MyOFT'
+// TODO declare your contract name here
+const contractName = 'MyOApp'
 
 const deploy: DeployFunction = async (hre) => {
-
     const { getNamedAccounts, deployments } = hre
 
     const { deploy } = deployments
@@ -27,9 +27,9 @@ const deploy: DeployFunction = async (hre) => {
     // For example:
     //
     // networks: {
-    //   'optimism-testnet': {
+    //   fuji: {
     //     ...
-    //     eid: EndpointId.OPTSEP_V2_TESTNET
+    //     eid: EndpointId.AVALANCHE_V2_TESTNET
     //   }
     // }
     const endpointV2Deployment = await hre.deployments.get('EndpointV2')
@@ -37,8 +37,6 @@ const deploy: DeployFunction = async (hre) => {
     const { address } = await deploy(contractName, {
         from: deployer,
         args: [
-            'Example', // name
-            'XMPL', // symbol
             endpointV2Deployment.address, // LayerZero's EndpointV2 address
             deployer, // owner
         ],
