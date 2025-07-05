@@ -7,6 +7,8 @@ import Navbar from "./components/Navbar";
 import Overview from "./pages/Overview";
 import Bank from "./pages/Bank";
 import Account from "./pages/Account";
+import { Toaster } from "react-hot-toast";
+
 function App() {
   return (
     <Router>
@@ -35,6 +37,8 @@ function App() {
             </Routes>
           </motion.div>
         </main>
+                <Toaster position="bottom-center" reverseOrder={false} />
+
       </div>
     </Router>
   );
