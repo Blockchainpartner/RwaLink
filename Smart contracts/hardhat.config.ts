@@ -15,6 +15,7 @@ import { HardhatUserConfig, HttpNetworkAccountsUserConfig } from 'hardhat/types'
 import { EndpointId } from '@layerzerolabs/lz-definitions'
 
 import './tasks/sendString'
+import './tasks/mintTask'
 
 // Set your preferred authentication method
 //
@@ -55,9 +56,9 @@ const config: HardhatUserConfig = {
         ],
     },
     networks: {
-        'optimism-testnet': {
-            eid: EndpointId.OPTSEP_V2_TESTNET,
-            url: process.env.RPC_URL_OP_SEPOLIA,
+        'base-testnet': {
+            eid: EndpointId.BASESEP_V2_TESTNET,
+            url: process.env.RPC_URL_BASE_SEPOLIA,
             accounts,
         },
         'arbitrum-testnet': {
@@ -79,7 +80,7 @@ const config: HardhatUserConfig = {
         apiKey: {
           sepolia: process.env.ETHERSCAN_API_KEY || "",
           arbitrumSepolia: process.env.ARBSCAN_API_KEY || "",
-          optimismSepolia: process.env.OPTIMISMSCAN_API_KEY || "",
+          baseSepolia: process.env.BASESCAN_API_KEY || "",
         },
     },
     namedAccounts: {

@@ -39,6 +39,8 @@ const deploy: DeployFunction = async (hre) => {
         args: [
             endpointV2Deployment.address, // LayerZero's EndpointV2 address
             deployer, // owner
+            "RWALink-Test",
+            "RWAT"
         ],
         log: true,
         skipIfAlreadyDeployed: false,

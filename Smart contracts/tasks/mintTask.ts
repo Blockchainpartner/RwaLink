@@ -52,16 +52,16 @@ async function getBlockExplorerLink(networkName: string, txHash: string): Promis
     return explorer ? `${explorer}/tx/${txHash}` : undefined
 }
 
-task('lz:oapp:whitelist', 'Whitelist cross‐chain using MyOApp contract')
+task('lz:oapp:mint', 'Mint cross‐chain using MyOApp contract')
     .addParam('dstEid', 'Destination endpoint ID', undefined, types.int)
     .addParam('dstEid2', 'Destination endpoint ID 2', undefined, types.int)
-    .addParam('address', 'Address to whitelist', undefined, types.string)
-    .addParam('status', 'Status to update', undefined, types.boolean)
+    .addParam('address', 'String to send', undefined, types.string)
+    .addParam('amount', 'String to send', undefined, types.int)
     .addOptionalParam('options', 'Execution options (hex string)', '0x', types.string)
-    .setAction(async (args: { dstEid: number; dstEid2: number; address: string; status: boolean; options?: string }, hre: HardhatRuntimeEnvironment) => {
+    .setAction(async (args: { dstEid: number; dstEid2: number; address: string; amount: number; options?: string }, hre: HardhatRuntimeEnvironment) => {
         logger.info(`Initiating string send from ${hre.network.name} to ${endpointIdToNetwork(args.dstEid)} and ${endpointIdToNetwork(args.dstEid2)}`)
-        logger.info(`String to send: "${args.address}"`)
-        logger.info(`Status: ${args.status}`)
+        logger.info(`Address to send: "${args.address}"`)
+        logger.info(`Amount to send: "${args.amount}"`)
         logger.info(`Destination EID: ${args.dstEid}`)
         logger.info(`Destination EID2: ${args.dstEid2}`)
 
@@ -93,11 +93,11 @@ task('lz:oapp:whitelist', 'Whitelist cross‐chain using MyOApp contract')
         logger.info('Quoting gas cost for the send transaction...')
         let messagingFee
         try {
-            messagingFee = await myOAppContract.quoteBatchWhitelist(
+            messagingFee = await myOAppContract.quoteBatchMint(
                 [args.dstEid, args.dstEid2],
                 args.address,
+                args.amount,
                 options,
-                args.status,
                 false // payInLzToken = false (pay in native token)
             )
             logger.info(`  Native fee: ${hre.ethers.utils.formatEther(messagingFee.nativeFee)} ETH`)
@@ -114,7 +114,7 @@ task('lz:oapp:whitelist', 'Whitelist cross‐chain using MyOApp contract')
         logger.info('Sending the string transaction...')
         let tx: ContractTransaction
         try {
-            tx = await myOAppContract.changeWhitelist([args.dstEid, args.dstEid2], args.address, options, args.status, {
+            tx = await myOAppContract.batchMint([args.dstEid, args.dstEid2], args.address, args.amount, options, {
                 value: messagingFee.nativeFee, // Pay the native fee
                 // gasLimit: 2000000,
             })
