@@ -1,7 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { motion } from "motion/react";
 import Logo from "./assets/Full logo.png";
-
 import { WalletButton } from "./components/walletButton";
 import Navbar from "./components/Navbar";
 import Overview from "./pages/Overview";
@@ -22,7 +21,6 @@ function App() {
         </div>
         <WalletButton />
         <Navbar />
-
         <main className="flex-grow flex justify-center items-center px-6">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
@@ -37,8 +35,7 @@ function App() {
             </Routes>
           </motion.div>
         </main>
-                <Toaster position="bottom-center" reverseOrder={false} />
-
+        <Toaster position="bottom-center" reverseOrder={false} />
       </div>
     </Router>
   );
