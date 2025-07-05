@@ -37,7 +37,7 @@ return (
           }
         `}
       >
-        {isPending ? "Connecting..." : "Connect"}
+        {isPending ? "Connecting..." : "Connect Wallet"}
       </button>
     ) : (
       <>
