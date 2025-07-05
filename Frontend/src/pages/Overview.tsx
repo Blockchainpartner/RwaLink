@@ -1,40 +1,34 @@
+import animationGif from "../assets/asset.gif";
+
 export default function Overview() {
   return (
-    <div className="flex h-screen v-screen">
+    <div className="flex h-screen">
       {/* Left half: vertically centered, text pushed more left */}
-      <section className="flex-1 flex items-center justify-start ">
-        <div className="max-w-md text-left">
-          <h1 className="text-4xl font-bold mb-6 text-black">
-            Project Presentation
-          </h1>
-          <p className="text-gray-700 leading-relaxed">
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-          </p>
-        </div>
-      </section>
+<section className="flex-1 flex items-center justify-start pl-10">
+  <div className="max-w-2xl text-left">
+    <h1 className="text-4xl font-bold mb-6 text-black">
+      Universal Real World Asset Tokenization
+    </h1>
+    <p className="text-gray-700 leading-relaxed">
+      This platform enables seamless and compliant tokenization of Real World Assets (RWAs) across multiple blockchains.
+      Built on <span className="font-semibold text-blue-700">ERC-7943: uRWA</span>, it provides a universal interface that abstracts away the complexities of multichain deployment.
+      <br /><br />
+      With a unified UX and synchronized compliance rules on every chain, we empower users, institutions, and developers to issue, transfer, and manage RWA tokens  transparently  no matter the underlying Blockchain.
+    </p>
+  </div>
+</section>
 
-      {/* Right half: vertically centered, animation near right edge */}
-      <section className="flex-1 flex items-center justify-center ">
-        <svg
-          className="animate-spin h-24 w-24 text-blue-500"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          />
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-          />
-        </svg>
+      <h1 className="text-4xl font-bold mb-6 text-black">
+</h1>
+
+
+      {/* Right half: vertically centered, transparent animated gif */}
+      <section className="flex-1 flex items-center justify-center pr-10">
+        <img
+          src={animationGif}
+          alt="Animated logo"
+          className="h-70 w-auto object-contain"
+        />
       </section>
     </div>
   );
