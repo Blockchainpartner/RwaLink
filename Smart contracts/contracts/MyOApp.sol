@@ -4,12 +4,12 @@ pragma solidity ^0.8.22;
 import { OApp, Origin, MessagingFee } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import { OAppOptionsType3 } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OAppOptionsType3.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { Context } from "@openzeppelin/contracts/utils/Context.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { AccessControlEnumerable } from "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
-import { IERC7943 } from "interfaces/IERC7943.sol";
+import { AccessControlEnumerable } from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
+import { IERC20Errors } from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
+import { IERC7943 } from "./interfaces/IERC7943.sol";
 
-contract MyOApp is OApp, OAppOptionsType3, Context, ERC20, AccessControlEnumerable, IERC7943 {
+contract MyOApp is OApp, OAppOptionsType3, ERC20, AccessControlEnumerable, IERC7943 {
     /// @notice Msg type for sending a string, for use in OAppOptionsType3 as an enforced option
     uint16 public constant SEND = 1;
 
@@ -27,7 +27,7 @@ contract MyOApp is OApp, OAppOptionsType3, Context, ERC20, AccessControlEnumerab
     /// @notice Initialize with Endpoint V2 and owner address
     /// @param _endpoint The local chain's LayerZero Endpoint V2 address
     /// @param _owner    The address permitted to configure this OApp
-    constructor(address _endpoint, address _owner) OApp(_endpoint, _owner) ERC20(name, symbol) {
+    constructor(address _endpoint, address _owner, string memory _name, string memory _symbol) OApp(_endpoint, _owner) ERC20(_name, _symbol) Ownable(_owner) {
         // for simplicity the Bank has all the rights
         _grantRole(DEFAULT_ADMIN_ROLE, _owner);
         _grantRole(MINTER_ROLE, _owner);
@@ -48,8 +48,8 @@ contract MyOApp is OApp, OAppOptionsType3, Context, ERC20, AccessControlEnumerab
         uint256,
         uint256 amount
     ) public view virtual returns (bool allowed) {
-        if (amount > balanceOf(from) - _frozenTokens[from]) return;
-        if (!isUserAllowed(from) || !isUserAllowed(to)) return;
+        if (amount > balanceOf(from) - _frozenTokens[from]) return false;
+        if (!isUserAllowed(from) || !isUserAllowed(to)) return false;
         allowed = true;
     }
 
@@ -61,22 +61,50 @@ contract MyOApp is OApp, OAppOptionsType3, Context, ERC20, AccessControlEnumerab
         amount = _frozenTokens[user];
     }
 
-    function changeWhitelist(address account, bool status) external onlyRole(WHITELIST_ROLE) {
-        require(account != address(0), NotZeroAddress());
-        isWhitelisted[account] = status;
-        emit Whitelisted(account, status);
+    function changeWhitelist(
+        uint32[] memory _dstEids,
+        address _whitelistAddress,
+        bytes calldata _options,
+        bool status
+        ) external payable onlyRole(WHITELIST_ROLE) {
+        require(_whitelistAddress != address(0), "error");
+
+        bytes memory _message = abi.encode(0, _whitelistAddress, status);
+        uint256 len = _dstEids.length;
+        
+        MessagingFee[] memory fees = new MessagingFee[](len);
+        uint256 totalNativeFee = 0;
+
+        for (uint256 i = 0; i < len; i++) {
+            bytes memory opts = combineOptions(_dstEids[i], SEND, _options);
+            // only one _quote call per destination
+            fees[i] = _quote(_dstEids[i], _message, opts, /*payInZRO=*/ false);
+            totalNativeFee += fees[i].nativeFee;
+        }
+
+        // 2) Check up‐front that the caller supplied enough
+        require(msg.value >= totalNativeFee, "Insufficient fee");
+
+        // 3) Now do all the sends, reusing the fees we already fetched
+        for (uint256 i = 0; i < len; i++) {
+            bytes memory opts = combineOptions(_dstEids[i], SEND, _options);
+            _lzSend(_dstEids[i], _message, opts, fees[i], payable(msg.sender));
+        }
+
+        isWhitelisted[_whitelistAddress] = status;
+        emit Whitelisted(_whitelistAddress, status);
     }
 
     /* standard mint and burn functions with access control ...*/
 
     function setFrozen(address user, uint256, uint256 amount) public onlyRole(ENFORCER_ROLE) {
-        require(amount <= balanceOf(user), IERC20Errors.ERC20InsufficientBalance(user, balanceOf(user), amount));
+        require(amount <= balanceOf(user), "Insufficient balance");
         _frozenTokens[user] = amount;
         emit Frozen(user, 0, amount);
     }
 
     function forceTransfer(address from, address to, uint256, uint256 amount) public onlyRole(ENFORCER_ROLE) {
-        require(isUserAllowed(to), ERC7943NotAllowedUser(to));
+        require(isUserAllowed(to), "ERC7943NotAllowedUser(to)");
         _excessFrozenUpdate(from, amount);
         super._update(from, to, amount);
         emit ForcedTransfer(from, to, 0, amount);
@@ -94,30 +122,21 @@ contract MyOApp is OApp, OAppOptionsType3, Context, ERC20, AccessControlEnumerab
     function _update(address from, address to, uint256 amount) internal virtual override {
         if (from != address(0) && to != address(0)) {
             // Transfer
-            require(amount <= balanceOf(from), IERC20Errors.ERC20InsufficientBalance(from, balanceOf(from), amount));
+            require(amount <= balanceOf(from), "IERC20Errors.ERC20InsufficientBalance(from, balanceOf(from), amount)");
             require(
                 amount <= balanceOf(from) - _frozenTokens[from],
-                ERC7943InsufficientUnfrozenBalance(from, 0, amount, balanceOf(from) - _frozenTokens[from])
+                "ERC7943InsufficientUnfrozenBalance(from, 0, amount, balanceOf(from) - _frozenTokens[from])"
             );
-            require(isTransferAllowed(from, to, 0, amount), ERC7943NotAllowedTransfer(from, to, 0, amount));
+            require(isTransferAllowed(from, to, 0, amount), "ERC7943NotAllowedTransfer(from, to, 0, amount)");
         } else if (from == address(0)) {
             // Mint
-            require(isUserAllowed(to), ERC7943NotAllowedUser(to));
+            require(isUserAllowed(to), "ERC7943NotAllowedUser(to)");
         } else {
             // Burn
             _excessFrozenUpdate(from, amount);
         }
 
         super._update(from, to, amount);
-    }
-
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view virtual override(AccessControlEnumerable, IERC165) returns (bool) {
-        return
-            interfaceId == type(IERC7943).interfaceId ||
-            interfaceId == type(IERC20).interfaceId ||
-            super.supportsInterface(interfaceId);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -150,36 +169,34 @@ contract MyOApp is OApp, OAppOptionsType3, Context, ERC20, AccessControlEnumerab
         return MessagingFee(nativeSum, zroSum);
     }
 
-    function sendBatchWhitelist(
-        uint32[] memory _dstEids,
-        address _whitelistAddress,
-        bytes calldata _options
-    ) external payable {
-        bytes memory _message = abi.encode(_whitelistAddress);
-        uint256 len = _dstEids.length;
+    // function sendBatchWhitelist(
+    //     uint32[] memory _dstEids,
+    //     address _whitelistAddress,
+    //     bytes calldata _options
+    // ) external payable {
+    //     bytes memory _message = abi.encode(_whitelistAddress);
+    //     uint256 len = _dstEids.length;
 
-        // 1) Compute each fee exactly once
-        MessagingFee[] memory fees = new MessagingFee[](len);
-        uint256 totalNativeFee = 0;
+    //     // 1) Compute each fee exactly once
+    //     MessagingFee[] memory fees = new MessagingFee[](len);
+    //     uint256 totalNativeFee = 0;
 
-        for (uint256 i = 0; i < len; i++) {
-            bytes memory opts = combineOptions(_dstEids[i], SEND, _options);
-            // only one _quote call per destination
-            fees[i] = _quote(_dstEids[i], _message, opts, /*payInZRO=*/ false);
-            totalNativeFee += fees[i].nativeFee;
-        }
+    //     for (uint256 i = 0; i < len; i++) {
+    //         bytes memory opts = combineOptions(_dstEids[i], SEND, _options);
+    //         // only one _quote call per destination
+    //         fees[i] = _quote(_dstEids[i], _message, opts, /*payInZRO=*/ false);
+    //         totalNativeFee += fees[i].nativeFee;
+    //     }
 
-        // 2) Check up‐front that the caller supplied enough
-        require(msg.value >= totalNativeFee, "Insufficient fee");
+    //     // 2) Check up‐front that the caller supplied enough
+    //     require(msg.value >= totalNativeFee, "Insufficient fee");
 
-        // 3) Now do all the sends, reusing the fees we already fetched
-        for (uint256 i = 0; i < len; i++) {
-            bytes memory opts = combineOptions(_dstEids[i], SEND, _options);
-            _lzSend(_dstEids[i], _message, opts, fees[i], payable(msg.sender));
-        }
-
-        whitelist(_whitelistAddress);
-    }
+    //     // 3) Now do all the sends, reusing the fees we already fetched
+    //     for (uint256 i = 0; i < len; i++) {
+    //         bytes memory opts = combineOptions(_dstEids[i], SEND, _options);
+    //         _lzSend(_dstEids[i], _message, opts, fees[i], payable(msg.sender));
+    //     }
+    // }
 
     // ──────────────────────────────────────────────────────────────────────────────
     // 2. Receive business logic
@@ -206,20 +223,18 @@ contract MyOApp is OApp, OAppOptionsType3, Context, ERC20, AccessControlEnumerab
         // 1. Decode the incoming bytes into a string
         //    You can use abi.decode, abi.decodePacked, or directly splice bytes
         //    if you know the format of your data structures
-        address _address = abi.decode(_message, (address));
+        // uint256 actionID, address _address = abi.decode(_message, (address));
+        (uint256 action) = abi.decode(_message, (uint256));
 
-        whitelist(_address);
+        if (action == 0) {
+            (uint256 _actionID, address _whitelistAddress, bool _status) = abi.decode(_message, (uint256, address, bool));
+            //whitelisitng
+            isWhitelisted[_whitelistAddress] = _status;
+            emit Whitelisted(_whitelistAddress, _status);
+        }
 
         // 3. (Optional) Trigger further on-chain actions.
         //    e.g., emit an event, mint tokens, call another contract, etc.
         //    emit MessageReceived(_origin.srcEid, _string);
-    }
-
-    function whitelist(address _whiteAddr) public {
-        whitelisted.push(_whiteAddr);
-    }
-
-    function getWhitelist() external view returns (address[] memory) {
-        return whitelisted;
     }
 }
