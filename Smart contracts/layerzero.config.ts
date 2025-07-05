@@ -13,7 +13,7 @@ const arbitrumContract: OmniPointHardhat = {
     contractName: 'MyOApp',
 }
 const sepoliaContract: OmniPointHardhat = {
-    eid: EndpointId.ETHEREUM_V2_TESTNET,
+    eid: EndpointId.SEPOLIA_V2_TESTNET,
     contractName: 'MyOApp',
 }
 

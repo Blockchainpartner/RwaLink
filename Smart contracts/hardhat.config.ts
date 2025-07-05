@@ -9,6 +9,7 @@ import 'hardhat-deploy'
 import 'hardhat-contract-sizer'
 import '@nomiclabs/hardhat-ethers'
 import '@layerzerolabs/toolbox-hardhat'
+import "@nomicfoundation/hardhat-verify";
 import { HardhatUserConfig, HttpNetworkAccountsUserConfig } from 'hardhat/types'
 
 import { EndpointId } from '@layerzerolabs/lz-definitions'
@@ -72,6 +73,13 @@ const config: HardhatUserConfig = {
         hardhat: {
             // Need this for testing because TestHelperOz5.sol is exceeding the compiled contract size limit
             allowUnlimitedContractSize: true,
+        },
+    },
+    etherscan: {
+        apiKey: {
+          sepolia: process.env.ETHERSCAN_API_KEY || "",
+          arbitrumSepolia: process.env.ARBSCAN_API_KEY || "",
+          optimismSepolia: process.env.OPTIMISMSCAN_API_KEY || "",
         },
     },
     namedAccounts: {
