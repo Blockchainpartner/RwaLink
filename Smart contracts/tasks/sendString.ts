@@ -54,12 +54,14 @@ async function getBlockExplorerLink(networkName: string, txHash: string): Promis
 
 task('lz:oapp:send', 'Sends a string cross‐chain using MyOApp contract')
     .addParam('dstEid', 'Destination endpoint ID', undefined, types.int)
-    .addParam('string', 'String to send', undefined, types.string)
+    .addParam('dstEid2', 'Destination endpoint ID 2', undefined, types.int)
+    .addParam('address', 'String to send', undefined, types.string)
     .addOptionalParam('options', 'Execution options (hex string)', '0x', types.string)
-    .setAction(async (args: { dstEid: number; string: string; options?: string }, hre: HardhatRuntimeEnvironment) => {
-        logger.info(`Initiating string send from ${hre.network.name} to ${endpointIdToNetwork(args.dstEid)}`)
-        logger.info(`String to send: "${args.string}"`)
+    .setAction(async (args: { dstEid: number; dstEid2: number; address: string; options?: string }, hre: HardhatRuntimeEnvironment) => {
+        logger.info(`Initiating string send from ${hre.network.name} to ${endpointIdToNetwork(args.dstEid)} and ${endpointIdToNetwork(args.dstEid2)}`)
+        logger.info(`String to send: "${args.address}"`)
         logger.info(`Destination EID: ${args.dstEid}`)
+        logger.info(`Destination EID2: ${args.dstEid2}`)
 
         // Get the signer
         const [signer] = await hre.ethers.getSigners()
@@ -89,9 +91,9 @@ task('lz:oapp:send', 'Sends a string cross‐chain using MyOApp contract')
         logger.info('Quoting gas cost for the send transaction...')
         let messagingFee
         try {
-            messagingFee = await myOAppContract.quoteSendString(
-                args.dstEid,
-                args.string,
+            messagingFee = await myOAppContract.quoteBatchSend(
+                [args.dstEid, args.dstEid2],
+                args.address,
                 options,
                 false // payInLzToken = false (pay in native token)
             )
@@ -100,7 +102,7 @@ task('lz:oapp:send', 'Sends a string cross‐chain using MyOApp contract')
         } catch (error) {
             DebugLogger.printErrorAndFixSuggestion(
                 KnownErrors.ERROR_QUOTING_GAS_COST,
-                `For network: ${endpointIdToNetwork(args.dstEid)}, Contract: ${contractAddress}`
+                `For network: ${endpointIdToNetwork(args.dstEid)} and ${endpointIdToNetwork(args.dstEid2)}, Contract: ${contractAddress}`
             )
             throw error
         }
@@ -109,14 +111,15 @@ task('lz:oapp:send', 'Sends a string cross‐chain using MyOApp contract')
         logger.info('Sending the string transaction...')
         let tx: ContractTransaction
         try {
-            tx = await myOAppContract.sendString(args.dstEid, args.string, options, {
+            tx = await myOAppContract.sendBatchWhitelist([args.dstEid, args.dstEid2], args.address, options, {
                 value: messagingFee.nativeFee, // Pay the native fee
+                // gasLimit: 2000000,
             })
             logger.info(`  Transaction hash: ${tx.hash}`)
         } catch (error) {
             DebugLogger.printErrorAndFixSuggestion(
                 KnownErrors.ERROR_SENDING_TRANSACTION,
-                `For network: ${endpointIdToNetwork(args.dstEid)}, Contract: ${contractAddress}`
+                `For network: ${endpointIdToNetwork(args.dstEid)} and ${endpointIdToNetwork(args.dstEid2)}, Contract: ${contractAddress}`
             )
             throw error
         }
@@ -130,7 +133,7 @@ task('lz:oapp:send', 'Sends a string cross‐chain using MyOApp contract')
         // 4️⃣ Success messaging and links
         DebugLogger.printLayerZeroOutput(
             KnownOutputs.SENT_VIA_OAPP,
-            `Successfully sent "${args.string}" from ${hre.network.name} to ${endpointIdToNetwork(args.dstEid)}`
+            `Successfully sent "${args.address}" from ${hre.network.name} to ${endpointIdToNetwork(args.dstEid)} and ${endpointIdToNetwork(args.dstEid2)}`
         )
 
         // Get and display block explorer link

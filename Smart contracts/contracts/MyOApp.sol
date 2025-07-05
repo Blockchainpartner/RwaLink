@@ -6,8 +6,7 @@ import { OAppOptionsType3 } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OA
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract MyOApp is OApp, OAppOptionsType3 {
-    /// @notice Last string received from any remote chain
-    string public lastMessage;
+    address[] public whitelisted;
 
     /// @notice Msg type for sending a string, for use in OAppOptionsType3 as an enforced option
     uint16 public constant SEND = 1;
@@ -17,6 +16,12 @@ contract MyOApp is OApp, OAppOptionsType3 {
     /// @param _owner    The address permitted to configure this OApp
     constructor(address _endpoint, address _owner) OApp(_endpoint, _owner) Ownable(_owner) {}
 
+    // Override function for transaction fees adapted to multi-network
+    function _payNative(uint256 _nativeFee) internal override returns (uint256 nativeFee) {
+        if (msg.value < _nativeFee) revert NotEnoughNative(msg.value);
+        return _nativeFee;
+    }
+
     // ──────────────────────────────────────────────────────────────────────────────
     // 0. (Optional) Quote business logic
     //
@@ -24,63 +29,64 @@ contract MyOApp is OApp, OAppOptionsType3 {
     // Replace this to mirror your own send business logic.
     // ──────────────────────────────────────────────────────────────────────────────
 
-    /**
-     * @notice Quotes the gas needed to pay for the full omnichain transaction in native gas or ZRO token.
-     * @param _dstEid Destination chain's endpoint ID.
-     * @param _string The string to send.
-     * @param _options Message execution options (e.g., for sending gas to destination).
-     * @param _payInLzToken Whether to return fee in ZRO token.
-     * @return fee A `MessagingFee` struct containing the calculated gas fee in either the native token or ZRO token.
-     */
-    function quoteSendString(
-        uint32 _dstEid,
-        string calldata _string,
-        bytes calldata _options,
-        bool _payInLzToken
-    ) public view returns (MessagingFee memory fee) {
-        bytes memory _message = abi.encode(_string);
-        // combineOptions (from OAppOptionsType3) merges enforced options set by the contract owner
-        // with any additional execution options provided by the caller
-        fee = _quote(_dstEid, _message, combineOptions(_dstEid, SEND, _options), _payInLzToken);
+    function quoteBatchSend(
+    uint32[] memory _dstEids,
+    address _whitelistAddress,
+    bytes calldata _options,
+    bool _payInLzToken
+    ) public view returns (MessagingFee memory totalFee) {
+        bytes memory _message = abi.encode(_whitelistAddress);
+        uint256 len = _dstEids.length;
+
+        uint256 nativeSum = 0;
+        uint256 zroSum = 0;
+
+        for (uint256 i = 0; i < len; i++) {
+            uint32 dst = _dstEids[i];
+            bytes memory opts = combineOptions(dst, SEND, _options);
+            MessagingFee memory fee = _quote(dst, _message, opts, _payInLzToken);
+            nativeSum += fee.nativeFee;
+            zroSum += 0;
+        }
+
+        return MessagingFee(nativeSum, zroSum);
     }
 
-    // ──────────────────────────────────────────────────────────────────────────────
-    // 1. Send business logic
-    //
-    // Example: send a simple string to a remote chain. Replace this with your
-    // own state-update logic, then encode whatever data your application needs.
-    // ──────────────────────────────────────────────────────────────────────────────
+    function sendBatchWhitelist(
+    uint32[] memory _dstEids,
+    address _whitelistAddress,
+    bytes calldata _options
+    ) external payable {
+        bytes memory _message = abi.encode(_whitelistAddress);
+        uint256 len = _dstEids.length;
 
-    /// @notice Send a string to a remote OApp on another chain
-    /// @param _dstEid   Destination Endpoint ID (uint32)
-    /// @param _string  The string to send
-    /// @param _options  Execution options for gas on the destination (bytes)
-    function sendString(uint32 _dstEid, string calldata _string, bytes calldata _options) external payable {
-        // 1. (Optional) Update any local state here.
-        //    e.g., record that a message was "sent":
-        //    sentCount += 1;
+        // 1) Compute each fee exactly once
+        MessagingFee[] memory fees = new MessagingFee[](len);
+        uint256 totalNativeFee = 0;
 
-        // 2. Encode any data structures you wish to send into bytes
-        //    You can use abi.encode, abi.encodePacked, or directly splice bytes
-        //    if you know the format of your data structures
-        bytes memory _message = abi.encode(_string);
+        for (uint256 i = 0; i < len; i++) {
+            bytes memory opts = combineOptions(_dstEids[i], SEND, _options);
+            // only one _quote call per destination
+            fees[i] = _quote(_dstEids[i], _message, opts, /*payInZRO=*/ false);
+            totalNativeFee += fees[i].nativeFee;
+        }
 
-        // 3. Call OAppSender._lzSend to package and dispatch the cross-chain message
-        //    - _dstEid:   remote chain's Endpoint ID
-        //    - _message:  ABI-encoded string
-        //    - _options:  combined execution options (enforced + caller-provided)
-        //    - MessagingFee(msg.value, 0): pay all gas as native token; no ZRO
-        //    - payable(msg.sender): refund excess gas to caller
-        //
-        //    combineOptions (from OAppOptionsType3) merges enforced options set by the contract owner
-        //    with any additional execution options provided by the caller
-        _lzSend(
-            _dstEid,
-            _message,
-            combineOptions(_dstEid, SEND, _options),
-            MessagingFee(msg.value, 0),
-            payable(msg.sender)
-        );
+        // 2) Check up‐front that the caller supplied enough
+        require(msg.value >= totalNativeFee, "Insufficient fee");
+
+        // 3) Now do all the sends, reusing the fees we already fetched
+        for (uint256 i = 0; i < len; i++) {
+            bytes memory opts = combineOptions(_dstEids[i], SEND, _options);
+            _lzSend(
+                _dstEids[i],
+                _message,
+                opts,
+                fees[i],
+                payable(msg.sender)
+            );
+        }
+
+        whitelist(_whitelistAddress);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -108,13 +114,20 @@ contract MyOApp is OApp, OAppOptionsType3 {
         // 1. Decode the incoming bytes into a string
         //    You can use abi.decode, abi.decodePacked, or directly splice bytes
         //    if you know the format of your data structures
-        string memory _string = abi.decode(_message, (string));
+        address _address = abi.decode(_message, (address));
 
-        // 2. Apply your custom logic. In this example, store it in `lastMessage`.
-        lastMessage = _string;
+        whitelist(_address);
 
         // 3. (Optional) Trigger further on-chain actions.
         //    e.g., emit an event, mint tokens, call another contract, etc.
         //    emit MessageReceived(_origin.srcEid, _string);
+    }
+
+    function whitelist(address _whiteAddr) public {
+        whitelisted.push(_whiteAddr);
+    }
+
+    function getWhitelist() external view returns (address[] memory) {
+        return whitelisted;
     }
 }
