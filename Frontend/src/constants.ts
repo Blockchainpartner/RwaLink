@@ -1,7 +1,8 @@
 export const CONTRACT_ADDRESSES = {
-    sepolia: "0xF3A4B90d0988802B8658df510b834EAF299DF19D",
-    baseSepolia: "0xe4e430285D4E1a42DCC3bBa6BF0a4790040C7624",
-    arbitrumSepolia: "0x563Ac14Bfd04c3a3342D1466830ff4470cDFd76c",
+    sepolia: "0xCC55Cb3c6aE9EFB1F99f426e954a9032Ad378544",
+    baseSepolia: "0x26a466779f2Dd4DFdda22AC92263f4C055451C55",
+    arbitrumSepolia: "0x62a4739174dB89608ebD33Bf8861dA7E5e313f4e",
+    
 } as const;
 
 export const EID = {
