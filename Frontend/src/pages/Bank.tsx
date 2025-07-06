@@ -60,7 +60,7 @@ export default function Bank() {
       toast.success(`https:/testnet.layerzeroscan.com/tx/${receipt.hash}`);
     } catch (err: any) {
       console.error(err);
-      toast.error("Failed to quote whitelist ❌");
+      toast.error("Failed to whitelist ❌");
     }
   };
   const handleBlacklist = async (blacklistAddress: string) => {
@@ -108,13 +108,56 @@ export default function Bank() {
       toast.success(`https:/testnet.layerzeroscan.com/tx/${receipt.hash}`);
     } catch (err: any) {
       console.error(err);
-      toast.error("Failed to quote whitelist ❌");
+      toast.error("Failed to Blacklist ❌");
     }
   };
+  const handleMint = async (mintAddress: string, mintAmount: number) => {
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
 
-  const handleMint = () => {
-    toast.success(`Minted ${mintAmount} tokens to ${mintAddress}`);
-    // TODO: Call mint contract method here
+      const connectedChainLabel = CHAIN_NAMES[chainId ?? 0];
+      console.log("Connected to chain:", chainId);
+      //const availableChains = CHAINS.filter((c) => c.id !== chainId);
+      const destinationEIDs = Object.entries(EID)
+        .filter(
+          ([key]) =>
+            key.toLowerCase() !==
+            connectedChainLabel.replace(/\s+/g, "").toLowerCase()
+        )
+        .map(([, eid]) => eid);
+
+      const contract = new ethers.Contract(
+        //@ts-ignore
+        CONTRACT_ADDRESSES[connectedChainLabel], // replace with correct chain or dynamic switch
+        ABI,
+        signer
+      );
+      const quote = await contract.quoteBatchMint(
+        destinationEIDs, // _dstEids
+        mintAddress,
+        mintAmount, // _mintAmount (assuming 18 decimals)
+        "0x", // _options (can be empty bytes)
+        false // payInLzToken = false
+      );
+      //omnichain_mint
+      const tx = await contract.batchMint(
+        destinationEIDs,
+        mintAddress,
+        mintAmount,
+        "0x",
+        {
+          value: Number(quote[0]), // Pay the native fee
+        }
+      );
+      const receipt = await tx.wait();
+      console.log(`https://testnet.layerzeroscan.com/tx/${receipt.hash}`);
+      toast.success("Multichain Mint successful");
+      toast.success(`https:/testnet.layerzeroscan.com/tx/${receipt.hash}`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("User not whitelisted ❌");
+    }
   };
 
   const handleFreeze = () => {
@@ -122,9 +165,53 @@ export default function Bank() {
     // TODO: Call freeze contract method here
   };
 
-  const handleBurn = () => {
+  const handleBurn = async (burnAddress: string, burnAmount: number) => {
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const connectedChainLabel = CHAIN_NAMES[chainId ?? 0];
+      console.log("Connected to chain:", chainId);
+      //const availableChains = CHAINS.filter((c) => c.id !== chainId);
+      const destinationEIDs = Object.entries(EID)
+        .filter(
+          ([key]) =>
+            key.toLowerCase() !==
+            connectedChainLabel.replace(/\s+/g, "").toLowerCase()
+        )
+        .map(([, eid]) => eid);
+
+      const contract = new ethers.Contract(
+        //@ts-ignore
+        CONTRACT_ADDRESSES[connectedChainLabel], // replace with correct chain or dynamic switch
+        ABI,
+        signer
+      );
+      const quote = await contract.quoteBatchBurn(
+        destinationEIDs, // _dstEids
+        burnAddress,
+        burnAmount, // _mintAmount (assuming 18 decimals)
+        "0x", // _options (can be empty bytes)
+        false // payInLzToken = false
+      );
+      //omnichain_mint
+      const tx = await contract.batchBurn(
+        destinationEIDs,
+        burnAddress,
+        burnAmount,
+        "0x",
+        {
+          value: Number(quote[0]), // Pay the native fee
+        }
+      );
+      const receipt = await tx.wait();
+      console.log(`https://testnet.layerzeroscan.com/tx/${receipt.hash}`);
+      toast.success("Multichain Mint successful");
+      toast.success(`https:/testnet.layerzeroscan.com/tx/${receipt.hash}`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Error while burning ❌");
+    }
     toast.success(`Burned ${burnAmount} tokens from ${burnAddress}`);
-    // TODO: Call burn contract method here
   };
 
   return (
@@ -233,7 +320,7 @@ export default function Bank() {
                 placeholder="Amount"
               />
               <button
-                onClick={handleMint}
+                onClick={() => handleMint(mintAddress, Number(mintAmount))}
                 className="bg-gradient-to-r from-green-500 via-lime-500 to-emerald-500 text-white px-4 py-2 rounded-lg hover:brightness-110 transition"
               >
                 Mint
@@ -284,7 +371,7 @@ export default function Bank() {
                 placeholder="Amount"
               />
               <button
-                onClick={handleBurn}
+                onClick={() => handleBurn(burnAddress, Number(burnAmount))}
                 className="bg-gradient-to-r from-orange-500 via-red-500 to-pink-600 text-white px-4 py-2 rounded-lg hover:brightness-110 transition"
               >
                 Burn
