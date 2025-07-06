@@ -1,17 +1,8 @@
 import { useChainId } from "wagmi";
 import { useState } from "react";
 
-const CHAIN_NAMES: Record<number, string> = {
-  11155111: "Sepolia",
-  84532: "Base Sepolia",
-  421614: "Arbitrum Sepolia",
-};
+import { CONTRACT_ADDRESSES,EID ,CHAIN_NAMES,CHAINS} from "../constants";
 
-const CHAINS = [
-  { id: 11155111, label: "Sepolia" },
-  { id: 84532, label: "Base Sepolia" },
-  { id: 421614, label: "Arbitrum Sepolia" },
-];
 
 export default function User() {
   const chainId = useChainId();
