@@ -11,6 +11,8 @@ export default function Bank() {
   const [mintAddress, setMintAddress] = useState("");
   const [mintAmount, setMintAmount] = useState("");
   const [freezeAddress, setFreezeAddress] = useState("");
+  const [freezeAmount, setFreezeAmount] = useState("");
+
   const [burnAddress, setBurnAddress] = useState("");
   const [burnAmount, setBurnAmount] = useState("");
   const chainId = useChainId();
@@ -159,10 +161,53 @@ export default function Bank() {
       toast.error("User not whitelisted ❌");
     }
   };
+  const handleFreeze = async (freezeAddress: string, freezeAmount: number) => {
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const connectedChainLabel = CHAIN_NAMES[chainId ?? 0];
+      console.log("Connected to chain:", chainId);
+      //const availableChains = CHAINS.filter((c) => c.id !== chainId);
+      const destinationEIDs = Object.entries(EID)
+        .filter(
+          ([key]) =>
+            key.toLowerCase() !==
+            connectedChainLabel.replace(/\s+/g, "").toLowerCase()
+        )
+        .map(([, eid]) => eid);
 
-  const handleFreeze = () => {
-    toast.success(`Froze: ${freezeAddress}`);
-    // TODO: Call freeze contract method here
+      const contract = new ethers.Contract(
+        //@ts-ignore
+        CONTRACT_ADDRESSES[connectedChainLabel], // replace with correct chain or dynamic switch
+        ABI,
+        signer
+      );
+      const quote = await contract.quoteBatchFreeze(
+        destinationEIDs, // _dstEids
+        freezeAddress,
+        freezeAmount, // _mintAmount (assuming 18 decimals)
+        "0x", // _options (can be empty bytes)
+        false // payInLzToken = false
+      );
+      //omnichain_mint
+      const tx = await contract.batchFreeze(
+        destinationEIDs,
+        freezeAddress,
+        freezeAmount,
+        "0x",
+        {
+          value: Number(quote[0]), // Pay the native fee
+        }
+      );
+      const receipt = await tx.wait();
+      console.log(`https://testnet.layerzeroscan.com/tx/${receipt.hash}`);
+      toast.success("Multichain Freeze successful");
+      toast.success(`https:/testnet.layerzeroscan.com/tx/${receipt.hash}`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Error while freezing ❌");
+    }
+    toast.success(`Freezed ${freezeAmount} tokens `);
   };
 
   const handleBurn = async (burnAddress: string, burnAmount: number) => {
@@ -205,13 +250,13 @@ export default function Bank() {
       );
       const receipt = await tx.wait();
       console.log(`https://testnet.layerzeroscan.com/tx/${receipt.hash}`);
-      toast.success("Multichain Mint successful");
+      toast.success("Multichain Burn successful");
       toast.success(`https:/testnet.layerzeroscan.com/tx/${receipt.hash}`);
     } catch (err: any) {
       console.error(err);
       toast.error("Error while burning ❌");
     }
-    toast.success(`Burned ${burnAmount} tokens from ${burnAddress}`);
+    toast.success(`Burned ${burnAmount} tokens `);
   };
 
   return (
@@ -298,7 +343,6 @@ export default function Bank() {
               </button>
             </div>
           </div>
-
           {/* Mint */}
           <div>
             <label className="block text-sm font-semibold mb-1">
@@ -327,29 +371,6 @@ export default function Bank() {
               </button>
             </div>
           </div>
-
-          {/* Freeze */}
-          <div>
-            <label className="block text-sm font-semibold mb-1">
-              Freeze Address
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={freezeAddress}
-                onChange={(e) => setFreezeAddress(e.target.value)}
-                className="flex-1 px-4 py-2 rounded-lg bg-white/30 border border-black/20"
-                placeholder="0x..."
-              />
-              <button
-                onClick={handleFreeze}
-                className="bg-gradient-to-r from-cyan-600 via-blue-400 to-slate-600 text-white px-4 py-2 rounded-lg hover:brightness-110 transition"
-              >
-                Freeze
-              </button>
-            </div>
-          </div>
-
           {/* Burn */}
           <div>
             <label className="block text-sm font-semibold mb-1">
@@ -375,6 +396,36 @@ export default function Bank() {
                 className="bg-gradient-to-r from-orange-500 via-red-500 to-pink-600 text-white px-4 py-2 rounded-lg hover:brightness-110 transition"
               >
                 Burn
+              </button>
+            </div>
+          </div>
+          <div>
+            {/* Freeze */}
+            <label className="block text-sm font-semibold mb-1">
+              Freeze Address
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={freezeAddress}
+                onChange={(e) => setFreezeAddress(e.target.value)}
+                className="flex-1 px-4 py-2 rounded-lg bg-white/30 border border-black/20"
+                placeholder="0x..."
+              />
+              <input
+                type="number"
+                value={freezeAmount}
+                onChange={(e) => setFreezeAmount(e.target.value)}
+                className="w-24 px-4 py-2 rounded-lg bg-white/30 border border-black/20"
+                placeholder="Amount"
+              />
+              <button
+                onClick={() =>
+                  handleFreeze(freezeAddress, Number(freezeAmount))
+                }
+                className="bg-gradient-to-r from-cyan-600 via-blue-400 to-slate-600 text-white px-4 py-2 rounded-lg hover:brightness-110 transition"
+              >
+                Freeze
               </button>
             </div>
           </div>
