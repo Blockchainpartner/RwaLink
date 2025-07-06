@@ -1,7 +1,18 @@
 import { useChainId } from "wagmi";
 import { useState } from "react";
-
+import { ethers } from "ethers";
 import { CONTRACT_ADDRESSES, EID, CHAIN_NAMES, CHAINS } from "../constants";
+import { ABI } from "../ABI/abi";
+
+const providers = {
+  sepolia: new ethers.JsonRpcProvider(import.meta.env.VITE_RPC_URL_SEPOLIA),
+  baseSepolia: new ethers.JsonRpcProvider(
+    import.meta.env.VITE_RPC_URL_BASE_SEPOLIA
+  ),
+  arbitrumSepolia: new ethers.JsonRpcProvider(
+    import.meta.env.VITE_RPC_URL_ARB_SEPOLIA
+  ),
+};
 
 export default function Account() {
   const chainId = useChainId();
@@ -12,6 +23,13 @@ export default function Account() {
     sepolia: 0,
     base: 0,
     arbitrum: 0,
+  });
+
+  // State to store whitelist status per chain
+  const [whitelistStatus, setWhitelistStatus] = useState({
+    sepolia: false,
+    base: false,
+    arbitrum: false,
   });
 
   const [transferTo, setTransferTo] = useState<number>(
@@ -26,14 +44,78 @@ export default function Account() {
     // TODO: Add writeContract logic here
   };
 
-  const refreshBalances = () => {
+  const refreshBalances = async () => {
     console.log("Querying balances...");
-    // TODO: Add readContract logic here
-    setBalances({
-      sepolia: 100,
-      base: 40,
-      arbitrum: 72,
-    });
+
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const userAddress = await signer.getAddress();
+
+    try {
+      const [sepoliaBalance, baseBalance, arbitrumBalance] = await Promise.all([
+        new ethers.Contract(
+          CONTRACT_ADDRESSES.sepolia,
+          ABI,
+          providers.sepolia
+        ).balanceOf(userAddress),
+
+        new ethers.Contract(
+          CONTRACT_ADDRESSES.baseSepolia,
+          ABI,
+          providers.baseSepolia
+        ).balanceOf(userAddress),
+
+        new ethers.Contract(
+          CONTRACT_ADDRESSES.arbitrumSepolia,
+          ABI,
+          providers.arbitrumSepolia
+        ).balanceOf(userAddress),
+      ]);
+
+      setBalances({
+        sepolia: Number(sepoliaBalance),
+        base: Number(baseBalance),
+        arbitrum: Number(arbitrumBalance),
+      });
+    } catch (error) {
+      console.error("Error fetching balances:", error);
+      alert("Failed to fetch balances");
+    }
+  };
+
+  const checkWhitelistStatus = async () => {
+    console.log("Checking whitelist status on all chains...");
+    const provider = new ethers.BrowserProvider(window.ethereum);
+
+    const signer = await provider.getSigner();
+    try {
+      const results = await Promise.all([
+        new ethers.Contract(
+          CONTRACT_ADDRESSES.sepolia,
+          ABI,
+          providers.sepolia
+        ).isWhitelisted(signer.address),
+        new ethers.Contract(
+          CONTRACT_ADDRESSES.baseSepolia,
+          ABI,
+          providers.baseSepolia
+        ).isWhitelisted(signer.address),
+        new ethers.Contract(
+          CONTRACT_ADDRESSES.arbitrumSepolia,
+          ABI,
+          providers.arbitrumSepolia
+        ).isWhitelisted(signer.address),
+      ]);
+
+      setWhitelistStatus({
+        sepolia: results[0],
+        base: results[1],
+        arbitrum: results[2],
+      });
+    } catch (error) {
+      console.error("Error checking whitelist status:", error);
+      alert("Failed to fetch whitelist status");
+    }
   };
 
   return (
@@ -76,21 +158,56 @@ export default function Account() {
           </h2>
           <ul className="space-y-2">
             <li>
-              🔹 <strong>Sepolia:</strong> {balances.sepolia} RWA
+              🔹 <strong>Sepolia:</strong> {balances.sepolia} RWA —{" "}
+              {whitelistStatus.sepolia ? (
+                <span className="text-green-600 font-semibold">
+                  Whitelisted
+                </span>
+              ) : (
+                <span className="text-red-600 font-semibold">
+                  Not Whitelisted
+                </span>
+              )}
             </li>
             <li>
-              🔹 <strong>Base Sepolia:</strong> {balances.base} RWA
+              🔹 <strong>Base Sepolia:</strong> {balances.base} RWA —{" "}
+              {whitelistStatus.base ? (
+                <span className="text-green-600 font-semibold">
+                  Whitelisted
+                </span>
+              ) : (
+                <span className="text-red-600 font-semibold">
+                  Not Whitelisted
+                </span>
+              )}
             </li>
             <li>
-              🔹 <strong>Arbitrum Sepolia:</strong> {balances.arbitrum} RWA
+              🔹 <strong>Arbitrum Sepolia:</strong> {balances.arbitrum} RWA —{" "}
+              {whitelistStatus.arbitrum ? (
+                <span className="text-green-600 font-semibold">
+                  Whitelisted
+                </span>
+              ) : (
+                <span className="text-red-600 font-semibold">
+                  Not Whitelisted
+                </span>
+              )}
             </li>
           </ul>
-          <button
-            onClick={refreshBalances}
-            className="mt-4 bg-gradient-to-r from-blue-500 via-cyan-500 to-indigo-500 text-white px-4 py-2 rounded-lg hover:brightness-110 transition"
-          >
-            Refresh Balances
-          </button>
+          <div className="mt-4 flex gap-4">
+            <button
+              onClick={refreshBalances}
+              className="bg-gradient-to-r from-blue-500 via-cyan-500 to-indigo-500 text-white px-4 py-2 rounded-lg hover:brightness-110 transition"
+            >
+              Refresh Balances
+            </button>
+            <button
+              onClick={checkWhitelistStatus}
+              className="bg-gradient-to-r from-green-500 via-lime-500 to-emerald-500 text-white px-4 py-2 rounded-lg hover:brightness-110 transition"
+            >
+              Check Whitelist Status
+            </button>
+          </div>
         </div>
 
         {/* Transfer Form */}
