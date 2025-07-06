@@ -1,13 +1,12 @@
 import { useChainId } from "wagmi";
 import { useState } from "react";
 
-import { CONTRACT_ADDRESSES,EID ,CHAIN_NAMES,CHAINS} from "../constants";
+import { CONTRACT_ADDRESSES, EID, CHAIN_NAMES, CHAINS } from "../constants";
 
-
-export default function User() {
+export default function Account() {
   const chainId = useChainId();
   const connectedChainLabel = CHAIN_NAMES[chainId ?? 0];
-console.log("Connected to chain:", chainId);
+  console.log("Connected to chain:", chainId);
   const availableChains = CHAINS.filter((c) => c.id !== chainId);
   const [balances, setBalances] = useState({
     sepolia: 0,
@@ -15,11 +14,15 @@ console.log("Connected to chain:", chainId);
     arbitrum: 0,
   });
 
-  const [transferTo, setTransferTo] = useState<number>(availableChains[0]?.id || 0);
+  const [transferTo, setTransferTo] = useState<number>(
+    availableChains[0]?.id || 0
+  );
   const [amount, setAmount] = useState("");
 
   const handleTransfer = () => {
-    console.log(`Sending ${amount} RWA from ${connectedChainLabel} to ${CHAIN_NAMES[transferTo]}`);
+    console.log(
+      `Sending ${amount} RWA from ${connectedChainLabel} to ${CHAIN_NAMES[transferTo]}`
+    );
     // TODO: Add writeContract logic here
   };
 
@@ -39,16 +42,27 @@ console.log("Connected to chain:", chainId);
       <section className="flex-1 flex items-center justify-start pl-10">
         <div className="max-w-2xl text-left">
           <h1 className="text-4xl font-bold mb-6 text-black">
-            Your Crosschain RWA 
+            Your Crosschain RWA
           </h1>
           <p className="text-gray-700 leading-relaxed">
-            As a user, you can monitor your Real World Asset (RWA) balances across all supported blockchains in real time.
-            <br /><br />
-            You can also transfer your tokens seamlessly between <span className="font-semibold">Sepolia</span>, <span className="font-semibold">Base Sepolia</span>, and <span className="font-semibold">Arbitrum Sepolia</span> using cross-chain messaging.
-            <br /><br />
-            This functionality becomes even more useful when secondary markets emerge, enabling liquidity and trading of tokenized assets across ecosystems.
-            <br /><br />
-            Manage your portfolio with confidence — wherever your assets are deployed.
+            As a user, you can monitor your Real World Asset (RWA) balances
+            across all supported blockchains in real time.
+            <br />
+            <br />
+            You can also transfer your tokens seamlessly between{" "}
+            <span className="font-semibold">Sepolia</span>,{" "}
+            <span className="font-semibold">Base Sepolia</span>, and{" "}
+            <span className="font-semibold">Arbitrum Sepolia</span> using
+            cross-chain messaging.
+            <br />
+            <br />
+            This functionality becomes even more useful when secondary markets
+            emerge, enabling liquidity and trading of tokenized assets across
+            ecosystems.
+            <br />
+            <br />
+            Manage your portfolio with confidence — wherever your assets are
+            deployed.
           </p>
         </div>
       </section>
@@ -57,11 +71,19 @@ console.log("Connected to chain:", chainId);
       <section className="flex-1 flex flex-col gap-8 justify-center items-center pr-10">
         {/* Balances */}
         <div className="w-full max-w-xl bg-white/10 backdrop-blur-md p-6 rounded-2xl shadow border border-white/20 text-black">
-          <h2 className="text-lg font-semibold mb-4 text-gray-800">Your RWA Balances</h2>
+          <h2 className="text-lg font-semibold mb-4 text-gray-800">
+            Your RWA Balances
+          </h2>
           <ul className="space-y-2">
-            <li>🔹 <strong>Sepolia:</strong> {balances.sepolia} RWA</li>
-            <li>🔹 <strong>Base Sepolia:</strong> {balances.base} RWA</li>
-            <li>🔹 <strong>Arbitrum Sepolia:</strong> {balances.arbitrum} RWA</li>
+            <li>
+              🔹 <strong>Sepolia:</strong> {balances.sepolia} RWA
+            </li>
+            <li>
+              🔹 <strong>Base Sepolia:</strong> {balances.base} RWA
+            </li>
+            <li>
+              🔹 <strong>Arbitrum Sepolia:</strong> {balances.arbitrum} RWA
+            </li>
           </ul>
           <button
             onClick={refreshBalances}
@@ -73,7 +95,9 @@ console.log("Connected to chain:", chainId);
 
         {/* Transfer Form */}
         <div className="w-full max-w-xl bg-white/10 backdrop-blur-md p-6 rounded-2xl shadow border border-white/20 text-black">
-          <h2 className="text-lg font-semibold mb-4 text-gray-800">Transfer RWA Crosschain</h2>
+          <h2 className="text-lg font-semibold mb-4 text-gray-800">
+            Transfer RWA Crosschain
+          </h2>
 
           {/* From → To */}
           <div className="flex items-center gap-3 mb-4">
