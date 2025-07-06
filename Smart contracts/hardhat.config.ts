@@ -17,6 +17,8 @@ import { EndpointId } from '@layerzerolabs/lz-definitions'
 import './tasks/whitelistTask'
 import './tasks/mintTask'
 import './tasks/burnTask'
+import './tasks/freezeTask'
+import './tasks/sendTask'
 
 // Set your preferred authentication method
 //
