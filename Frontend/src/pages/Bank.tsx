@@ -1,7 +1,7 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { ABI } from "../ABI/abi";
-import { CONTRACT_ADDRESSES, EID, CHAIN_NAMES, CHAINS } from "../constants";
+import { CONTRACT_ADDRESSES, EID, CHAIN_NAMES } from "../constants";
 import { ethers } from "ethers";
 import { useChainId } from "wagmi";
 
