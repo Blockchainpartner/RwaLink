@@ -17,6 +17,7 @@ contract MyOApp is OApp, OAppOptionsType3, ERC20, AccessControlEnumerable, IERC7
     uint256 public constant MINT_ACTION = 1;
     uint256 public constant BURN_ACTION = 2;
     uint256 public constant FREEZE_ACTION = 3;
+    uint256 public constant SEND_ACTION = 4;
 
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
@@ -189,6 +190,43 @@ contract MyOApp is OApp, OAppOptionsType3, ERC20, AccessControlEnumerable, IERC7
         return MessagingFee(nativeSum, zroSum);
     }
 
+    function quoteBatchBurn(
+        uint32[] memory _dstEids,
+        address _userAddress,
+        uint256 _amount,
+        bytes calldata _options,
+        bool _payInLzToken
+    ) public view returns (MessagingFee memory totalFee) {
+        uint256 len = _dstEids.length;
+        uint256 amountPerNetwork = _amount / (len + 1);
+
+        bytes memory _message = abi.encode(BURN_ACTION, _userAddress, amountPerNetwork);
+
+        uint256 nativeSum = 0;
+        uint256 zroSum = 0;
+
+        for (uint256 i = 0; i < len; i++) {
+            uint32 dst = _dstEids[i];
+            bytes memory opts = combineOptions(dst, SEND, _options);
+            MessagingFee memory fee = _quote(dst, _message, opts, _payInLzToken);
+            nativeSum += fee.nativeFee;
+            zroSum += 0;
+        }
+
+        return MessagingFee(nativeSum, zroSum);
+    }
+
+    function quoteSendRWA(
+        uint32 _dstEid,
+        uint256 _amount,
+        bytes calldata _options,
+        bool _payInLzToken
+    ) public view returns (MessagingFee memory fee) {
+        bytes memory _message = abi.encode(SEND_ACTION, msg.sender, _amount);
+
+        fee = _quote(_dstEid, _message, combineOptions(_dstEid, SEND, _options), _payInLzToken);
+    }
+
     // ──────────────────────────────────────────────────────────────────────────────
     // 1. Send business logic
     //
@@ -301,6 +339,30 @@ contract MyOApp is OApp, OAppOptionsType3, ERC20, AccessControlEnumerable, IERC7
         burnRWA(_userAddress, amountPerNetwork);
     }
 
+    function sendRWA(
+        uint32 _dstEid,
+        uint256 _amount,
+        bytes calldata _options
+        ) external payable {
+        require(isUserAllowed(msg.sender), "User not whitelisted");
+        require(_amount <= balanceOf(msg.sender), "Insufficient balance");
+        require(_amount <= balanceOf(msg.sender) - _frozenTokens[msg.sender], "Tokens are frozen");
+
+        bytes memory _message = abi.encode(SEND_ACTION, msg.sender, _amount);
+
+        _lzSend(
+            _dstEid,
+            _message,
+            combineOptions(_dstEid, SEND, _options),
+            MessagingFee(msg.value, 0),
+            payable(msg.sender)
+        );
+
+        _update(msg.sender, address(0), _amount);
+
+        emit Burn(msg.sender, _amount);
+    }
+
     // ──────────────────────────────────────────────────────────────────────────────
     // 2. Receive business logic
     //
@@ -341,16 +403,24 @@ contract MyOApp is OApp, OAppOptionsType3, ERC20, AccessControlEnumerable, IERC7
             (uint256 _actionID, address _userAddress, uint256 _amount) = abi.decode(_message, (uint256, address, uint256));
 
             _update(address(0), _userAddress, _amount);
+
+            emit Mint(_userAddress, _amount);
         }
 
         if (action == BURN_ACTION) {
             (uint256 _actionID, address _userAddress, uint256 _amount) = abi.decode(_message, (uint256, address, uint256));
 
             _update(_userAddress, address(0), _amount);
+
+            emit Burn(_userAddress, _amount);
         }
 
-        // 3. (Optional) Trigger further on-chain actions.
-        //    e.g., emit an event, mint tokens, call another contract, etc.
-        //    emit MessageReceived(_origin.srcEid, _string);
+        if (action == SEND_ACTION) {
+            (uint256 _actionID, address _userAddress, uint256 _amount) = abi.decode(_message, (uint256, address, uint256));
+
+            _update(address(0), _userAddress, _amount);
+
+            emit Mint(_userAddress, _amount);
+        }
     }
 }
