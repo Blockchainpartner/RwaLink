@@ -14,11 +14,9 @@ export default function Bank() {
   const [burnAddress, setBurnAddress] = useState("");
   const [burnAmount, setBurnAmount] = useState("");
   const chainId = useChainId();
-  // Placeholder function for each action
+
   const handleWhitelist = async (whitelistAddress: string) => {
     try {
-      if (!window.ethereum) throw new Error("Wallet not found");
-
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
 
@@ -32,7 +30,7 @@ export default function Bank() {
             connectedChainLabel.replace(/\s+/g, "").toLowerCase()
         )
         .map(([, eid]) => eid);
-
+      console.log("Destination EIDs:", destinationEIDs);
       const contract = new ethers.Contract(
         //@ts-ignore
         CONTRACT_ADDRESSES[connectedChainLabel], // replace with correct chain or dynamic switch
@@ -65,10 +63,53 @@ export default function Bank() {
       toast.error("Failed to quote whitelist ❌");
     }
   };
+  const handleBlacklist = async (blacklistAddress: string) => {
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
 
-  const handleBlacklist = () => {
-    toast.success(`Blacklisted: ${blacklistAddress}`);
-    // TODO: Call blacklist contract method here
+      const connectedChainLabel = CHAIN_NAMES[chainId ?? 0];
+      console.log("Connected to chain:", chainId);
+      //const availableChains = CHAINS.filter((c) => c.id !== chainId);
+      const destinationEIDs = Object.entries(EID)
+        .filter(
+          ([key]) =>
+            key.toLowerCase() !==
+            connectedChainLabel.replace(/\s+/g, "").toLowerCase()
+        )
+        .map(([, eid]) => eid);
+
+      const contract = new ethers.Contract(
+        //@ts-ignore
+        CONTRACT_ADDRESSES[connectedChainLabel], // replace with correct chain or dynamic switch
+        ABI,
+        signer
+      );
+      const quote = await contract.quoteBatchWhitelist(
+        destinationEIDs, // _dstEids
+        blacklistAddress, // _whitelistAddress
+        "0x", // _options (can be empty bytes)
+        false, // status = true (whitelist)
+        false // payInLzToken = false
+      );
+      //omnichain_whitelist
+      const tx = await contract.changeWhitelist(
+        destinationEIDs,
+        blacklistAddress,
+        "0x",
+        false,
+        {
+          value: Number(quote[0]), // Pay the native fee
+        }
+      );
+      const receipt = await tx.wait();
+      console.log(`https://testnet.layerzeroscan.com/tx/${receipt.hash}`);
+      toast.success("Multichain blacklisting successful");
+      toast.success(`https:/testnet.layerzeroscan.com/tx/${receipt.hash}`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Failed to quote whitelist ❌");
+    }
   };
 
   const handleMint = () => {
@@ -163,7 +204,7 @@ export default function Bank() {
                 placeholder="0x..."
               />
               <button
-                onClick={handleBlacklist}
+                onClick={() => handleBlacklist(blacklistAddress)}
                 className="bg-gradient-to-r from-black via-gray-800 to-red-700 text-white px-4 py-2 rounded-lg hover:brightness-110 transition"
               >
                 Blacklist
