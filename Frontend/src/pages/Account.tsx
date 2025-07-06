@@ -3,6 +3,7 @@ import { useState } from "react";
 import { ethers } from "ethers";
 import { CONTRACT_ADDRESSES, EID, CHAIN_NAMES, CHAINS } from "../constants";
 import { ABI } from "../ABI/abi";
+import toast from "react-hot-toast";
 
 const providers = {
   sepolia: new ethers.JsonRpcProvider(import.meta.env.VITE_RPC_URL_SEPOLIA),
@@ -37,11 +38,54 @@ export default function Account() {
   );
   const [amount, setAmount] = useState("");
 
-  const handleTransfer = () => {
+  const handleTransfer = async (
+    connectedChainLabel: string,
+    transferTo: number,
+    amount: number
+  ) => {
     console.log(
       `Sending ${amount} RWA from ${connectedChainLabel} to ${CHAIN_NAMES[transferTo]}`
     );
-    // TODO: Add writeContract logic here
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const connectedChainLabel = CHAIN_NAMES[chainId ?? 0];
+      console.log("Connected to chain:", chainId);
+      const destinationEIDs = transferTo;
+
+      const contract = new ethers.Contract(
+        //@ts-ignore
+        CONTRACT_ADDRESSES[connectedChainLabel], // replace with correct chain or dynamic switch
+        ABI,
+        signer
+      );
+
+      const quote = await contract.quoteSendRWA(
+        //@ts-ignore
+        EID[CHAIN_NAMES[destinationEIDs]], // _dstEids
+        amount, // send Amount
+        "0x", // _options (can be empty bytes)
+        false // payInLzToken = false
+      );
+      //omnichain_send
+      const tx = await contract.sendRWA(
+        //@ts-ignore
+        EID[CHAIN_NAMES[destinationEIDs]],
+        amount,
+        "0x",
+        {
+          value: Number(quote[0]), // Pay the native fee
+        }
+      );
+      const receipt = await tx.wait();
+      console.log(`https://testnet.layerzeroscan.com/tx/${receipt.hash}`);
+      toast.success("Multichain Freeze successful");
+      toast.success(`https:/testnet.layerzeroscan.com/tx/${receipt.hash}`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Error while Sending ❌");
+    }
+    //toast.success(`Freezed ${freezeAmount} tokens `);
   };
 
   const refreshBalances = async () => {
@@ -86,7 +130,6 @@ export default function Account() {
   const checkWhitelistStatus = async () => {
     console.log("Checking whitelist status on all chains...");
     const provider = new ethers.BrowserProvider(window.ethereum);
-
     const signer = await provider.getSigner();
     try {
       const results = await Promise.all([
@@ -106,7 +149,6 @@ export default function Account() {
           providers.arbitrumSepolia
         ).isWhitelisted(signer.address),
       ]);
-
       setWhitelistStatus({
         sepolia: results[0],
         base: results[1],
@@ -143,7 +185,7 @@ export default function Account() {
             ecosystems.
             <br />
             <br />
-            Manage your portfolio with confidence — wherever your assets are
+            Manage your portfolio with confidence , wherever your assets are
             deployed.
           </p>
         </div>
@@ -249,7 +291,9 @@ export default function Account() {
           </div>
 
           <button
-            onClick={handleTransfer}
+            onClick={() =>
+              handleTransfer(connectedChainLabel, transferTo, Number(amount))
+            }
             disabled={!chainId || !transferTo || !amount}
             className="w-full bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 text-white px-4 py-2 rounded-lg hover:brightness-110 transition"
           >
