@@ -122,7 +122,7 @@ contract MyOApp is OApp, OAppOptionsType3, ERC20, AccessControlEnumerable, IERC7
         emit Mint(user, amount);
     }
 
-    function burnRWA(address user, uint256 amount) public onlyRole(MINTER_ROLE) {
+    function burnRWA(address user, uint256 amount) public onlyRole(BURNER_ROLE) {
         require(user != address(0), "Address error");
         require(isUserAllowed(user), "User not whitelisted");
         require(amount <= balanceOf(user), "Insufficient balance");
@@ -216,6 +216,32 @@ contract MyOApp is OApp, OAppOptionsType3, ERC20, AccessControlEnumerable, IERC7
         return MessagingFee(nativeSum, zroSum);
     }
 
+    function quoteBatchFreeze(
+        uint32[] memory _dstEids,
+        address _userAddress,
+        uint256 _amount,
+        bytes calldata _options,
+        bool _payInLzToken
+    ) public view returns (MessagingFee memory totalFee) {
+        uint256 len = _dstEids.length;
+        uint256 amountPerNetwork = _amount / (len + 1);
+
+        bytes memory _message = abi.encode(FREEZE_ACTION, _userAddress, amountPerNetwork);
+
+        uint256 nativeSum = 0;
+        uint256 zroSum = 0;
+
+        for (uint256 i = 0; i < len; i++) {
+            uint32 dst = _dstEids[i];
+            bytes memory opts = combineOptions(dst, SEND, _options);
+            MessagingFee memory fee = _quote(dst, _message, opts, _payInLzToken);
+            nativeSum += fee.nativeFee;
+            zroSum += 0;
+        }
+
+        return MessagingFee(nativeSum, zroSum);
+    }
+
     function quoteSendRWA(
         uint32 _dstEid,
         uint256 _amount,
@@ -240,7 +266,7 @@ contract MyOApp is OApp, OAppOptionsType3, ERC20, AccessControlEnumerable, IERC7
         bytes calldata _options,
         bool status
         ) external payable onlyRole(WHITELIST_ROLE) {
-        require(_whitelistAddress != address(0), "error");
+        require(_whitelistAddress != address(0), "Address error");
 
         bytes memory _message = abi.encode(WHITELIST_ACTION, _whitelistAddress, status);
         uint256 len = _dstEids.length;
@@ -275,7 +301,8 @@ contract MyOApp is OApp, OAppOptionsType3, ERC20, AccessControlEnumerable, IERC7
         uint256 _amount,
         bytes calldata _options
         ) external payable onlyRole(MINTER_ROLE) {
-        require(_userAddress != address(0), "error");
+        require(_userAddress != address(0), "Address error");
+        require(isUserAllowed(_userAddress), "User not whitelisted");
 
         uint256 len = _dstEids.length;
         uint256 amountPerNetwork = _amount / (len + 1);
@@ -309,8 +336,11 @@ contract MyOApp is OApp, OAppOptionsType3, ERC20, AccessControlEnumerable, IERC7
         address _userAddress,
         uint256 _amount,
         bytes calldata _options
-        ) external payable onlyRole(MINTER_ROLE) {
-        require(_userAddress != address(0), "error");
+        ) external payable onlyRole(BURNER_ROLE) {
+        require(_userAddress != address(0), "Address error");
+        require(isUserAllowed(_userAddress), "User not whitelisted");
+        require(_amount <= balanceOf(_userAddress), "Insufficient balance");
+        require(_amount <= balanceOf(_userAddress) - _frozenTokens[_userAddress], "Tokens are frozen");
 
         uint256 len = _dstEids.length;
         uint256 amountPerNetwork = _amount / (len + 1);
@@ -337,6 +367,42 @@ contract MyOApp is OApp, OAppOptionsType3, ERC20, AccessControlEnumerable, IERC7
         }
 
         burnRWA(_userAddress, amountPerNetwork);
+    }
+
+    function batchFreeze(
+        uint32[] memory _dstEids,
+        address _userAddress,
+        uint256 _amount,
+        bytes calldata _options
+        ) external payable onlyRole(ENFORCER_ROLE) {
+        require(_userAddress != address(0), "Address error");
+        require(_amount <= balanceOf(_userAddress), "Insufficient balance");
+
+        uint256 len = _dstEids.length;
+        uint256 amountPerNetwork = _amount / (len + 1);
+
+        bytes memory _message = abi.encode(FREEZE_ACTION, _userAddress, amountPerNetwork);
+        
+        MessagingFee[] memory fees = new MessagingFee[](len);
+        uint256 totalNativeFee = 0;
+
+        for (uint256 i = 0; i < len; i++) {
+            bytes memory opts = combineOptions(_dstEids[i], SEND, _options);
+            // only one _quote call per destination
+            fees[i] = _quote(_dstEids[i], _message, opts, /*payInZRO=*/ false);
+            totalNativeFee += fees[i].nativeFee;
+        }
+
+        // 2) Check up‐front that the caller supplied enough
+        require(msg.value >= totalNativeFee, "Insufficient fee");
+
+        // 3) Now do all the sends, reusing the fees we already fetched
+        for (uint256 i = 0; i < len; i++) {
+            bytes memory opts = combineOptions(_dstEids[i], SEND, _options);
+            _lzSend(_dstEids[i], _message, opts, fees[i], payable(msg.sender));
+        }
+
+        setFrozen(_userAddress, 0, amountPerNetwork);
     }
 
     function sendRWA(
@@ -413,6 +479,14 @@ contract MyOApp is OApp, OAppOptionsType3, ERC20, AccessControlEnumerable, IERC7
             _update(_userAddress, address(0), _amount);
 
             emit Burn(_userAddress, _amount);
+        }
+
+        if (action == FREEZE_ACTION) {
+            (uint256 _actionID, address _userAddress, uint256 _amount) = abi.decode(_message, (uint256, address, uint256));
+
+            _frozenTokens[_userAddress] = _amount;
+
+            emit Frozen(_userAddress, 0, _amount);
         }
 
         if (action == SEND_ACTION) {
