@@ -339,11 +339,12 @@ contract MyOApp is OApp, OAppOptionsType3, ERC20, AccessControlEnumerable, IERC7
         ) external payable onlyRole(BURNER_ROLE) {
         require(_userAddress != address(0), "Address error");
         require(isUserAllowed(_userAddress), "User not whitelisted");
-        require(_amount <= balanceOf(_userAddress), "Insufficient balance");
-        require(_amount <= balanceOf(_userAddress) - _frozenTokens[_userAddress], "Tokens are frozen");
 
         uint256 len = _dstEids.length;
         uint256 amountPerNetwork = _amount / (len + 1);
+
+        require(amountPerNetwork <= balanceOf(_userAddress), "Insufficient balance");
+        require(amountPerNetwork <= balanceOf(_userAddress) - _frozenTokens[_userAddress], "Tokens are frozen");
 
         bytes memory _message = abi.encode(BURN_ACTION, _userAddress, amountPerNetwork);
         
@@ -376,10 +377,11 @@ contract MyOApp is OApp, OAppOptionsType3, ERC20, AccessControlEnumerable, IERC7
         bytes calldata _options
         ) external payable onlyRole(ENFORCER_ROLE) {
         require(_userAddress != address(0), "Address error");
-        require(_amount <= balanceOf(_userAddress), "Insufficient balance");
 
         uint256 len = _dstEids.length;
         uint256 amountPerNetwork = _amount / (len + 1);
+
+        require(amountPerNetwork <= balanceOf(_userAddress), "Insufficient balance");
 
         bytes memory _message = abi.encode(FREEZE_ACTION, _userAddress, amountPerNetwork);
         
